@@ -11,8 +11,10 @@ for 5 seconds. First to **5 rounds** takes the match.
 
 Kills (+$300) and round wins (+$325) earn cash for the between-round buy menu:
 **Sidearm** (free), **Hornet SMG** ($600), **Longshot Rifle** ($1200),
-**Deadeye** sniper ($2000) and **plating** ($400, absorbs 50% of damage). Each
-weapon has its own damage, fire rate, magazine, spread and recoil.
+**Deadeye** sniper ($2000), **Ember Charge** grenades ($300) and
+**plating** ($400, absorbs 50% of damage). Each
+weapon has its own damage, fire rate, magazine, spread and recoil — and its own
+first-person viewmodel, with stride bob, recoil kick and a reload dip.
 
 ## Run it
 
@@ -25,6 +27,8 @@ node serve.ts
 
 - **Move:** WASD · **Sprint:** Shift · **Jump:** Space · **Crouch:** Ctrl
 - **Look / fire:** mouse (click to lock the pointer), click to shoot
+- **Aim down sights:** right mouse (tighter spread, narrower view)
+- **Throw Ember Charge:** G — it lobs, bounces, then detonates; the bang draws bots in
 - **Reload:** R · **Weapons:** 1–4 · **Buy menu:** B (between rounds) · **Mute:** M
 - **Objective:** clear the Frost team, or hold the Beacon ring until it captures.
   If the 100-second timer expires, the team with more agents standing wins the round.
@@ -34,11 +38,17 @@ node serve.ts
 The Foundry Yard is an original industrial arena: a central Beacon platform, a mid
 lane, two flank routes, crate stacks, pipe columns and sightline-breaking walls —
 dark steel with ember-orange and frost-blue accents, fog, shadows and furnace glow.
+Two covered **service vents** run down the flanks, a sheltered third route into mid,
+and every round ends with a recap card: kills, accuracy, damage and money earned.
 
 ## Bots
 
 Nine bots fight beside and against you. They patrol waypoints, push the Beacon,
-take cover, strafe while firing in bursts, and hunt you by line of sight. Friendly
+take cover, strafe while firing in bursts, and hunt you by line of sight. Each team
+has a designated **pusher** who runs the Beacon and a **cover** bot who lays
+suppressive fire down the mid lane; hurt bots fall back, and any bot that hears an
+Ember Charge go off turns to investigate the blast. Bots also throw their own
+Charges at enemies they have just lost sight of. Friendly
 bots wear orange chevrons, enemies blue ones. On death you spectate a friendly bot
 until the round ends.
 

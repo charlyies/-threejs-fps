@@ -14,6 +14,7 @@ export function createHud() {
     overlay: $('overlay'), overlayTitle: $('overlay-title'), overlayCopy: $('overlay-copy'),
     overlayStats: $('overlay-stats'), playBtn: $('play'), buyPanel: $('buy-panel'), titlePanel: $('title-panel'),
     buyMoney: $('buy-money'), buyList: $('buy-list'), buyTimer: $('buy-timer'),
+    grenades: $('grenades'), vignette: $('vignette'),
   };
   let hitTimer = null;
   function showOverlay(title, copy, btn, statsHtml = '') {
@@ -32,6 +33,13 @@ export function createHud() {
       els.healthFill.style.width = `${Math.max(0, hp)}%`;
       els.healthNum.textContent = Math.ceil(Math.max(0, hp));
       els.armorFill.style.width = `${Math.min(100, armor)}%`;
+      // Low-health vignette: the screen edges burn red under 35 HP.
+      if (els.vignette) els.vignette.classList.toggle('on', hp > 0 && hp <= 35);
+    },
+    setGrenades(n) {
+      if (!els.grenades) return;
+      els.grenades.textContent = n > 0 ? `◉ Ember Charge ×${n}  [G]` : '◯ Ember Charge — none  [G]';
+      els.grenades.classList.toggle('empty', n <= 0);
     },
     setAmmo(mag, reserve, name) {
       els.ammoMag.textContent = mag;
@@ -90,7 +98,7 @@ export function createHud() {
         'First to 5 rounds takes the match. Earn cash for kills and wins — spend it between rounds.',
         'Click to play');
     },
-    buy(money, owned, onBuy, onReady, seconds) {
+    buy(money, owned, onBuy, onReady, seconds, grenades = 0) {
       els.overlay.hidden = false;
       els.titlePanel.hidden = true;
       els.buyPanel.hidden = false;
@@ -103,6 +111,7 @@ export function createHud() {
         { key: '3', id: 'rifle', name: 'Longshot Rifle', desc: '30 / 90 · the all-rounder', price: 1200 },
         { key: '4', id: 'sniper', name: 'Deadeye', desc: '5 / 15 · one-shot headshots', price: 2000 },
         { key: '5', id: 'armor', name: 'Plating', desc: 'absorbs 50% of damage', price: 400 },
+        { key: '6', id: 'grenade', name: 'Ember Charge', desc: `lobbed explosive · carrying ×${grenades} (max 2)`, price: 300 },
       ];
       for (const it of items) {
         const b = document.createElement('button');

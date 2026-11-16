@@ -28,6 +28,9 @@ export const WEAPONS = {
 
 export const ARMOR_PRICE = 400;
 export const ARMOR_ABSORB = 0.5; // armor absorbs half of incoming damage
+export const GRENADE_PRICE = 300; // one Ember Charge; every round starts with one
+export const GRENADE_MAX_CARRY = 2; // at most two in the belt
+export const GRENADE_BUY_KEY = '6';
 export const START_MONEY = 800;
 export const KILL_REWARD = 300;
 export const WIN_REWARD = 325;

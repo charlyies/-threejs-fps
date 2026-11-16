@@ -67,5 +67,19 @@ export function createSound() {
     roundLose() { [392, 330, 262].forEach((f, i) => tone(f, 0.28, 'triangle', 0.2, null, i * 0.16)); },
     buy() { tone(740, 0.07, 'sine', 0.2); tone(1108, 0.1, 'sine', 0.2, null, 0.07); },
     denied() { tone(220, 0.12, 'square', 0.18, 160); },
+    // Ember Charge: a soft pin-pull whoosh on the throw, then a deep boom.
+    grenadeThrow() { noiseBurst(0.16, 2400, 0.25, 'bandpass'); tone(300, 0.12, 'sine', 0.1, 520); },
+    explosion() {
+      noiseBurst(0.55, 320, 1.0);
+      noiseBurst(0.3, 1200, 0.5);
+      tone(90, 0.5, 'sine', 0.5, 38);
+      tone(55, 0.7, 'triangle', 0.4, 30, 0.05);
+    },
+    // A distant grenade still thumps, just quieter.
+    explosionFar(dist) {
+      const v = Math.max(0.06, 0.55 - dist * 0.012);
+      noiseBurst(0.4, 240, v);
+      tone(70, 0.4, 'sine', v * 0.6, 34);
+    },
   };
 }

@@ -9,11 +9,13 @@ export const EMBER_SPAWN = { x: 0, z: 21 };
 export const FROST_SPAWN = { x: 0, z: -21 };
 
 // Waypoints: mid lane + west flank + east flank, used by bot navigation.
+// The (±22.5, ±5) points run through the service vents, clear of the pillar pipe.
 export const WAYPOINTS = [
   { x: 0, z: 14 }, { x: 0, z: 6 }, { x: 0, z: -6 }, { x: 0, z: -14 },
   { x: -12, z: 16 }, { x: -16, z: 6 }, { x: -16, z: -6 }, { x: -12, z: -16 },
   { x: 12, z: 16 }, { x: 16, z: 6 }, { x: 16, z: -6 }, { x: 12, z: -16 },
   { x: -7, z: 0 }, { x: 7, z: 0 }, { x: 0, z: 0 },
+  { x: -22.5, z: 5 }, { x: -22.5, z: -5 }, { x: 22.5, z: 5 }, { x: 22.5, z: -5 },
 ];
 
 const STEEL = 0x39404a, STEEL_DARK = 0x272b31, FLOOR = 0x2f333a;
@@ -85,6 +87,46 @@ export function createWorld(scene) {
   // Long side walls mid-flank (sightline breakers)
   box(-13, 0, 1.2, 2.8, 7, STEEL);
   box(13, 0, 1.2, 2.8, 7, STEEL);
+
+  // Service vents — covered flank tunnels on each side of the yard, a sheltered
+  // route from spawn to mid. Two walls and a roof slab make the tunnel; the
+  // roof is visual only (no collider) so grenades and tracers still read the
+  // space honestly. The old mid pipe at (±20, 0) stands inside as a pillar,
+  // leaving a clear lane on its outer side; waypoints run at x = ±22.5.
+  function vent(sign) {
+    const cx = sign * 20.5; // tunnel centreline
+    box(sign * 18, 0, 1, 2.6, 18, STEEL_DARK);
+    box(sign * 24, 0, 1, 2.6, 18, STEEL_DARK);
+    box(cx, 0, 7, 0.3, 18, STEEL, { y: 2.6, noCollide: true }); // roof slab
+    // A strip of ember light under the roof so the tunnel reads as a route.
+    const stripMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, emissive: EMBER, emissiveIntensity: 1.1 });
+    const stripMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.06, 16), stripMat);
+    stripMesh.position.set(cx, 2.58, 0);
+    group.add(stripMesh);
+    // Barrel clusters guard the tunnel mouths.
+    for (const z of [-10.5, 10.5]) {
+      cyl(cx - 1.6, z, 0.7, 1.1, CRATE);
+      cyl(cx + 1.4, z, 0.55, 0.9, 0x5a4630);
+    }
+    // Frost-blue marker lights at each mouth so the entrances read at a glance.
+    for (const z of [-9, 9]) {
+      const lamp = new THREE.Mesh(
+        new THREE.BoxGeometry(0.3, 0.3, 0.3),
+        new THREE.MeshStandardMaterial({ color: 0x0a1a24, emissive: FROST, emissiveIntensity: 2.4 }),
+      );
+      lamp.position.set(cx, 2.2, z);
+      group.add(lamp);
+    }
+  }
+  vent(-1);
+  vent(1);
+
+  // Extra mid cover: a low pipe stack and a barrel cluster near the Beacon so
+  // the centre fight has more than the two staggered blocks to hide behind.
+  box(-8, -3.5, 2.4, 1.1, 1.4, CRATE);
+  box(8, 3.5, 2.4, 1.1, 1.4, CRATE);
+  cyl(-8, 3.5, 0.7, 1.1, PIPE);
+  cyl(8, -3.5, 0.7, 1.1, PIPE);
   // Spawn-yard cover
   box(-7, 19, 4, 1.3, 1.4, CRATE);
   box(7, 19, 4, 1.3, 1.4, CRATE);

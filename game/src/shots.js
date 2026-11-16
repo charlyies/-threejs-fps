@@ -8,7 +8,11 @@ export function stageShot(name, ctx) {
   if (name === 'play') {
     ctx.startRound();
     // ~8 s of live play: the autopilot walks to the Beacon and fires at Frost bots.
-    for (let i = 0; i < 8 / STEP; i++) ctx.step(STEP, true);
+    // A Charge goes out at ~6.5 s so it is still arcing when the frame is taken.
+    for (let i = 0; i < 8 / STEP; i++) {
+      if (i === Math.floor(6.5 / STEP)) ctx.throwGrenade();
+      ctx.step(STEP, true);
+    }
     ctx.render();
     ctx.freeze();
     return;

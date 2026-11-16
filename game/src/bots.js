@@ -1,8 +1,9 @@
 // Bots: box-built humanoids with team-coloured chevrons, waypoint navigation,
 // line-of-sight engagement, strafing and burst fire. No external models.
 import * as THREE from 'three';
-import { WAYPOINTS } from './world.js';
+import { WAYPOINTS, BEACON } from './world.js';
 import { range } from './random.js';
+import { GRENADE_NOISE_RADIUS } from './grenade.js';
 
 const TEAM_COLOR = { ember: 0xff7a1a, frost: 0x37b6ff };
 const EMBER_NAMES = ['Ash', 'Cinder', 'Flint', 'Sable'];
@@ -50,12 +51,17 @@ export function createBot(scene, world, opts) {
     burstLeft: 0, burstTimer: range(rng, 0.5, 2), cooldown: 0,
     waypoint: null, strafeDir: 1, strafeTimer: 0, walkPhase: 0,
     lastSeen: null, lastSeenAt: -99, flash: 0, model, group: model.group,
+    grenades: 1, grenadeTimer: range(rng, 8, 16), // one Ember Charge per round
+    role: null, // 'push' | 'cover' | null, assigned each round by main.js
+    fleeUntil: 0, coverTimer: 0, lastNoiseAt: -99,
     spawn: { x, z },
     reset(nx, nz) {
       this.alive = true; this.health = 100; this.armor = 0;
       this.pos.set(nx, 0, nz); this.yaw = team === 'ember' ? Math.PI : 0;
       this.waypoint = null; this.lastSeen = null; this.burstLeft = 0;
       this.group.visible = true; this.flash = 0;
+      this.grenades = 1; this.grenadeTimer = range(rng, 8, 16);
+      this.role = null; this.fleeUntil = 0; this.coverTimer = 0; this.lastNoiseAt = -99;
       this.model.suitMat.emissive.setHex(0x000000);
     },
     damage(amount, headshot) {
@@ -72,9 +78,19 @@ export function createBot(scene, world, opts) {
 
 // One AI tick. `targets` = [{pos:Vector3, alive, isPlayer, bot, eyeY}].
 // `fire` = (shooter, targetPos, opts) called when the bot pulls the trigger.
-export function updateBot(bot, dt, world, targets, rng, fire, time) {
+// `ctx` carries the round state the AI reacts to: { roundTimeLeft, noise, throwGrenade }.
+export function updateBot(bot, dt, world, targets, rng, fire, time, ctx = {}) {
   if (!bot.alive) return;
   const eye = { x: bot.pos.x, y: 1.5, z: bot.pos.z };
+  // A grenade bang nearby: turn and investigate the blast site.
+  if (ctx.noise && ctx.noise.at !== bot.lastNoiseAt) {
+    bot.lastNoiseAt = ctx.noise.at;
+    const nd = Math.hypot(ctx.noise.x - bot.pos.x, ctx.noise.z - bot.pos.z);
+    if (nd < GRENADE_NOISE_RADIUS) {
+      bot.lastSeen = { x: ctx.noise.x, z: ctx.noise.z };
+      bot.lastSeenAt = time;
+    }
+  }
   // Find nearest visible enemy.
   let best = null, bestD = Infinity;
   for (const t of targets) {
@@ -89,6 +105,8 @@ export function updateBot(bot, dt, world, targets, rng, fire, time) {
     const dx = best.pos.x - bot.pos.x, dz = best.pos.z - bot.pos.z;
     const dist = Math.hypot(dx, dz) || 1;
     bot.yaw = Math.atan2(dx, dz);
+    // Hurt badly with the enemy close: break off and fall back.
+    if (bot.health < 30 && dist < 14) bot.fleeUntil = Math.max(bot.fleeUntil, time + 1.2);
     // Strafe while engaging; close in if far, hold ground mid-range.
     bot.strafeTimer -= dt;
     if (bot.strafeTimer <= 0) { bot.strafeDir *= -1; bot.strafeTimer = range(rng, 0.7, 1.6); }
@@ -113,8 +131,21 @@ export function updateBot(bot, dt, world, targets, rng, fire, time) {
       }
     }
   } else {
+    // No contact: an enemy was just here — flush them out with the Charge.
+    if (bot.grenades > 0 && bot.lastSeen && time - bot.lastSeenAt < 2.5) {
+      const gd = Math.hypot(bot.lastSeen.x - bot.pos.x, bot.lastSeen.z - bot.pos.z);
+      bot.grenadeTimer -= dt;
+      if (gd > 5 && gd < 20 && bot.grenadeTimer <= 0 && ctx.throwGrenade) {
+        ctx.throwGrenade(bot, bot.lastSeen);
+        bot.grenades -= 1;
+        bot.grenadeTimer = 999; // one Charge per round, and it is spent
+      }
+    }
     // No contact: head for the Beacon via waypoints, or the last-seen spot.
-    let goal = bot.lastSeen && time - bot.lastSeenAt < 6 ? bot.lastSeen : { x: 0, z: 0 };
+    // Pushers run the Beacon; everyone else hunts the last-seen spot. Late in
+    // the round the whole team converges on the objective instead of hunting.
+    const pushing = bot.role === 'push' || (ctx.roundTimeLeft ?? 99) < 25;
+    let goal = pushing ? BEACON : bot.lastSeen && time - bot.lastSeenAt < 6 ? bot.lastSeen : { x: 0, z: 0 };
     if (!bot.waypoint || Math.hypot(bot.waypoint.x - bot.pos.x, bot.waypoint.z - bot.pos.z) < 1.5) {
       // Pick the waypoint closest to the goal that we can walk toward.
       let wp = WAYPOINTS[0], wd = Infinity;
@@ -129,6 +160,24 @@ export function updateBot(bot, dt, world, targets, rng, fire, time) {
     moveX = dx / dist; moveZ = dz / dist;
     bot.yaw = Math.atan2(dx, dz);
     bot.cooldown -= dt;
+    // Cover bots hold the mid lane and hose the last-seen spot so the pusher
+    // can cross: tracers only, no damage — the shots are suppressive.
+    if (bot.role === 'cover' && bot.lastSeen && time - bot.lastSeenAt < 8) {
+      bot.coverTimer -= dt;
+      const nearMid = Math.hypot(bot.pos.x, bot.pos.z) < 14;
+      if (bot.coverTimer <= 0 && nearMid) {
+        bot.coverTimer = 2.4;
+        bot.yaw = Math.atan2(bot.lastSeen.x - bot.pos.x, bot.lastSeen.z - bot.pos.z);
+        fire(bot, { pos: new THREE.Vector3(bot.lastSeen.x, 1.2, bot.lastSeen.z) }, { err: 0.6, dist: 20 });
+      }
+    }
+  }
+  // Retreating overrides the strafe: run away from the spotted enemy.
+  if (time < bot.fleeUntil && best) {
+    const fx = bot.pos.x - best.pos.x, fz = bot.pos.z - best.pos.z;
+    const fl = Math.hypot(fx, fz) || 1;
+    moveX = fx / fl; moveZ = fz / fl;
+    bot.yaw = Math.atan2(fx, fz);
   }
   // Move axis-separated against colliders.
   const len = Math.hypot(moveX, moveZ);
